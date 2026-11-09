@@ -5144,6 +5144,53 @@ pub(crate) fn unstore(vm: &mut Vm, id: WidgetId, stem: &str) {
 pub(crate) fn set_texture_file(vm: &mut Vm, id: WidgetId, args: &[Value]) {
     store(vm, id, "Texture", args);
     unstore(vm, id, "Atlas");
+    unstore(vm, id, "SVG");
+}
+
+/// `Texture:SetSVG(svgAsset)`: the SVG file becomes the texture's file
+/// (decision T605): `GetTexture` and `GetTextureFileID` answer its ID, the
+/// renderer draws the document, and the SVG mark stays until `ClearSVG` or
+/// another texture or atlas (a VectorGraphics' `HasSVG` and `GetSVGFileID`
+/// read it; a texture has neither, as recorded). It worked, but for an empty path
+/// or file ID 0, as `SetTexture` (unverified: the client's answer for a
+/// missing file, and retail's failure on a shown region).
+fn set_svg(vm: &mut Vm, id: WidgetId, c: NativeCall) -> Ret {
+    let args: Vec<Value> = c.args.iter().skip(1).copied().collect();
+    let worked = match vm.hidden(c.arg(2)) {
+        Value::Num(n) => n != 0.0,
+        Value::Str(s) => !vm.str_bytes(s).is_empty(),
+        _ => true,
+    };
+    set_texture_file(vm, id, &args);
+    if worked {
+        store(vm, id, "SVG", &[Value::Bool(true)]);
+    }
+    Ok(vec![Value::Bool(worked)])
+}
+
+/// `Texture:ClearSVG()`: the SVG and the file it set are gone.
+fn clear_svg(vm: &mut Vm, id: WidgetId, _c: NativeCall) -> Ret {
+    let props = engine(vm).world.widgets[id.0].props;
+    if stored_args(vm, props, "SVG").is_some() {
+        unstore(vm, id, "Texture");
+        unstore(vm, id, "SVG");
+    }
+    Ok(vec![])
+}
+
+/// `Texture:HasSVG()`: whether `SetSVG` set the texture's file.
+fn has_svg(vm: &mut Vm, id: WidgetId, _c: NativeCall) -> Ret {
+    let props = engine(vm).world.widgets[id.0].props;
+    Ok(vec![Value::Bool(stored_args(vm, props, "SVG").is_some())])
+}
+
+/// `Texture:GetSVGFileID()`: the SVG's file ID, nothing without one.
+fn get_svg_file_id(vm: &mut Vm, id: WidgetId, _c: NativeCall) -> Ret {
+    let props = engine(vm).world.widgets[id.0].props;
+    if stored_args(vm, props, "SVG").is_none() {
+        return Ok(vec![Value::Nil]);
+    }
+    Ok(vec![crate::measures::texture_file(vm, id)])
 }
 
 /// `Texture:SetTexture(file, …)`: [`set_texture_file`]; it worked, but for
@@ -5314,6 +5361,10 @@ pub fn behaviours() -> Vec<(&'static str, MethodFn)> {
         ("SetAlpha", set_alpha),
         ("SetAlphaFromBoolean", set_alpha_from_boolean),
         ("SetTexture", set_texture),
+        ("SetSVG", set_svg),
+        ("ClearSVG", clear_svg),
+        ("HasSVG", has_svg),
+        ("GetSVGFileID", get_svg_file_id),
         ("GetAlpha", get_alpha),
         ("GetLeft", get_left),
         ("GetRight", get_right),

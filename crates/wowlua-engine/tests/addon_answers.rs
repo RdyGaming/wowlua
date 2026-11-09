@@ -502,3 +502,29 @@ return table.concat(out, ' '), table.concat(seen, ' ')",
         ]
     );
 }
+
+/// `SetSVG` sets the texture's file (decision T605): its ID answers
+/// `GetTexture`, `ClearSVG` takes it away, a `SetTexture` replaces it (and
+/// `ClearSVG` then leaves that file alone), and an empty asset did not
+/// work. A texture has no `HasSVG` (the client's methods, recorded).
+#[test]
+fn an_svg_is_the_textures_file() {
+    let mut vm = vm();
+    let r = run(
+        &mut vm,
+        "mock.defineAddon('Mine', {})
+local t = UIParent:CreateTexture()
+local ok = t:SetSVG('Interface\\\\AddOns\\\\Mine\\\\mark.svg')
+local set = tostring(ok) .. ' ' .. tostring(t:GetTexture() ~= nil and t:GetTexture() < 0)
+t:ClearSVG()
+local cleared = tostring(t:GetTexture())
+t:SetSVG('Interface\\\\AddOns\\\\Mine\\\\mark.svg')
+t:SetTexture('Interface\\\\AddOns\\\\Mine\\\\mark.png')
+local png = t:GetTexture()
+t:ClearSVG()
+local kept = tostring(t:GetTexture() == png)
+local empty = tostring(t:SetSVG(''))
+return set, cleared, kept, empty, tostring(t.HasSVG)",
+    );
+    assert_eq!(r, ["true true", "nil", "true", "false", "nil"]);
+}

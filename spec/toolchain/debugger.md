@@ -308,7 +308,10 @@ T310).
   Files are decoded once per session and kept in memory.
 - **Textures**: BLP (palettized, DXT1/3/5 and uncompressed, with mipmaps)
   and TGA, from the installation or from the addon's own folder (an
-  `Interface/AddOns/<Name>/…` path).
+  `Interface/AddOns/<Name>/…` path), and the addon's PNG files. An SVG
+  file (`SetSVG`, decision T605) is rasterized once at its own size (its
+  `width` and `height`, else its `viewBox`) and drawn as any texture; its
+  shapes, gradients and paths, not its text.
 - **Atlases**: from the build's own tables (`UiTextureAtlas`,
   `UiTextureAtlasMember`, `UiTextureAtlasElement`), so they match its
   files (decision T316): a name is an element, drawn with its variant of

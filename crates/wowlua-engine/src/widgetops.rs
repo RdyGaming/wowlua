@@ -471,7 +471,7 @@ fn stop_animating(vm: &mut Vm, id: WidgetId, _c: NativeCall) -> Ret {
 /// Methods of what the engine draws or keeps nothing of: model cameras,
 /// lights and animation kits, the browser and the shop's
 /// checkout, housing's pins, the minimap's blips and pings, movies, unit
-/// position frames, vector graphics and blobs, the input language, focus
+/// position frames and blobs, the input language, focus
 /// and mouse simulation, roles and access restrictions, and a single
 /// animation played on its own (unverified: whether its group plays).
 /// They change nothing a getter reads; a getter among them answers its
@@ -581,16 +581,12 @@ pub const EMPTY_METHODS: &[&str] = &[
     "TabardModelBase:GetUpperEmblemTexture",
     "TabardModelBase:InitializeTabardColors",
     "TabardModelBase:Save",
-    "TextureBase:ClearSVG",
     "Tooltip:AddFontStrings",
     "UnitPositionFrame:AddUnit",
     "UnitPositionFrame:ClearUnits",
     "UnitPositionFrame:FinalizeUnits",
     "UnitPositionFrame:StartPlayerPing",
     "UnitPositionFrame:StopPlayerPing",
-    "VectorGraphics:ClearSVG",
-    "VectorGraphics:GetSVGFileID",
-    "VectorGraphics:HasSVG",
 ];
 
 /// `ClearAttributes()`: every attribute gone.

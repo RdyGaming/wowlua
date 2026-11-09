@@ -361,12 +361,15 @@ impl Assets for ClientAssets {
         let bytes = match image {
             Image::Color | Image::Portrait { .. } => return None,
             Image::File(path) => self
-                .addon_file(path, &[".blp", ".tga", ".png"])
+                .addon_file(path, &[".blp", ".tga", ".png", ".svg"])
                 .or_else(|| self.casc.as_ref()?.file_by_path(path)),
             Image::FileId(id) => self.casc.as_ref()?.file_by_id(*id),
         }?;
         if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
             return crate::decode_png(&bytes).ok();
+        }
+        if crate::is_svg(&bytes) {
+            return crate::decode_svg(&bytes).ok();
         }
         wowlua_casc::decode_image(&bytes)
     }

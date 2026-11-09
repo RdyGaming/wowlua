@@ -1672,9 +1672,62 @@ pub fn decode_png(bytes: &[u8]) -> Result<Rgba, String> {
     })
 }
 
+/// An SVG file (`SetSVG`), rasterized at its own size (its `width` and
+/// `height`, else its `viewBox`), straight alpha (decision T605).
+pub fn decode_svg(bytes: &[u8]) -> Result<Rgba, String> {
+    let tree = resvg::usvg::Tree::from_data(bytes, &resvg::usvg::Options::default())
+        .map_err(|e| e.to_string())?;
+    let size = tree.size().to_int_size();
+    let (width, height) = (size.width().max(1), size.height().max(1));
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height).ok_or("an SVG with a size")?;
+    resvg::render(
+        &tree,
+        resvg::tiny_skia::Transform::identity(),
+        &mut pixmap.as_mut(),
+    );
+    let pixels = pixmap
+        .pixels()
+        .iter()
+        .flat_map(|p| {
+            let c = p.demultiply();
+            [c.red(), c.green(), c.blue(), c.alpha()]
+        })
+        .collect();
+    Ok(Rgba {
+        width,
+        height,
+        pixels,
+    })
+}
+
+/// Whether a file is an SVG document: XML text that opens an `svg`
+/// element (a BOM, an XML declaration or comments before it allowed).
+pub fn is_svg(bytes: &[u8]) -> bool {
+    let head = &bytes[..bytes.len().min(4096)];
+    let text = String::from_utf8_lossy(head);
+    let text = text.trim_start_matches('\u{feff}').trim_start();
+    text.starts_with('<') && text.contains("<svg")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An SVG is drawn at its own size with straight alpha (decision
+    /// T605): a 4 by 2 document with a red left half.
+    #[test]
+    fn an_svg_decodes_at_its_size() {
+        let svg = br##"<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="4" height="2" viewBox="0 0 4 2">
+  <rect x="0" y="0" width="2" height="2" fill="#ff0000"/>
+</svg>"##;
+        assert!(is_svg(svg));
+        assert!(!is_svg(b"BLP2...."));
+        let img = decode_svg(svg).unwrap();
+        assert_eq!((img.width, img.height), (4, 2));
+        assert_eq!(&img.pixels[0..4], &[255, 0, 0, 255]);
+        assert_eq!(img.pixels[4 * 3 + 3], 0, "the right half is transparent");
+    }
 
     /// A tiled axis: one copy per tile; past the image's edge `Repeat`
     /// starts it again, `Mirror` turns every other copy, `Clamp` holds the

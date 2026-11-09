@@ -1672,17 +1672,34 @@ pub fn decode_png(bytes: &[u8]) -> Result<Rgba, String> {
     })
 }
 
+/// The most an SVG is rasterized to on a side: a larger document is
+/// scaled down to fit (a texture's size in the client, and no allocation
+/// an addon's file decides).
+const SVG_MAX_SIDE: f32 = 4096.0;
+
 /// An SVG file (`SetSVG`), rasterized at its own size (its `width` and
-/// `height`, else its `viewBox`), straight alpha (decision T605).
+/// `height`, else its `viewBox`; at most [`SVG_MAX_SIDE`] a side), straight
+/// alpha (decision T605). The document's own shapes only: an `<image>`
+/// that names a file or a URL is not read.
 pub fn decode_svg(bytes: &[u8]) -> Result<Rgba, String> {
-    let tree = resvg::usvg::Tree::from_data(bytes, &resvg::usvg::Options::default())
-        .map_err(|e| e.to_string())?;
-    let size = tree.size().to_int_size();
-    let (width, height) = (size.width().max(1), size.height().max(1));
+    let options = resvg::usvg::Options {
+        image_href_resolver: resvg::usvg::ImageHrefResolver {
+            resolve_data: resvg::usvg::ImageHrefResolver::default_data_resolver(),
+            resolve_string: Box::new(|_, _| None),
+        },
+        ..Default::default()
+    };
+    let tree = resvg::usvg::Tree::from_data(bytes, &options).map_err(|e| e.to_string())?;
+    let size = tree.size();
+    let scale = (SVG_MAX_SIDE / size.width())
+        .min(SVG_MAX_SIDE / size.height())
+        .min(1.0);
+    let width = ((size.width() * scale).ceil() as u32).max(1);
+    let height = ((size.height() * scale).ceil() as u32).max(1);
     let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height).ok_or("an SVG with a size")?;
     resvg::render(
         &tree,
-        resvg::tiny_skia::Transform::identity(),
+        resvg::tiny_skia::Transform::from_scale(scale, scale),
         &mut pixmap.as_mut(),
     );
     let pixels = pixmap
@@ -1727,6 +1744,10 @@ mod tests {
         assert_eq!((img.width, img.height), (4, 2));
         assert_eq!(&img.pixels[0..4], &[255, 0, 0, 255]);
         assert_eq!(img.pixels[4 * 3 + 3], 0, "the right half is transparent");
+        // A document larger than the cap is scaled down to it.
+        let huge = br##"<svg xmlns="http://www.w3.org/2000/svg" width="8192" height="4096"/>"##;
+        let img = decode_svg(huge).unwrap();
+        assert_eq!((img.width, img.height), (4096, 2048));
     }
 
     /// A tiled axis: one copy per tile; past the image's edge `Repeat`

@@ -310,8 +310,9 @@ T310).
   and TGA, from the installation or from the addon's own folder (an
   `Interface/AddOns/<Name>/…` path), and the addon's PNG files. An SVG
   file (`SetSVG`, decision T605) is rasterized once at its own size (its
-  `width` and `height`, else its `viewBox`) and drawn as any texture; its
-  shapes, gradients and paths, not its text.
+  `width` and `height`, else its `viewBox`; at most 4096 a side, a larger
+  document scaled down) and drawn as any texture: its shapes, gradients
+  and paths, not its text, and not an `<image>` naming a file or a URL.
 - **Atlases**: from the build's own tables (`UiTextureAtlas`,
   `UiTextureAtlasMember`, `UiTextureAtlasElement`), so they match its
   files (decision T316): a name is an element, drawn with its variant of
